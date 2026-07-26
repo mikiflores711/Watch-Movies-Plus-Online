@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <base target="_top">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>CinePlay Admin</title>
+  <style>
+    :root{--bg:#0d0f17;--panel:#171a25;--panel2:#202432;--text:#f5f7fb;--muted:#9ca3b5;--line:rgba(255,255,255,.09);--accent:#667eea;--ok:#10b981;--danger:#ef4444;--warn:#f59e0b}
+    *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,sans-serif}
+    .app{max-width:1200px;margin:auto;padding:20px}.head{display:flex;gap:14px;align-items:center;justify-content:space-between;margin-bottom:18px}
+    h1{margin:0;font-size:clamp(24px,5vw,38px)}.muted{color:var(--muted)}
+    .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}.stat{background:var(--panel);border:1px solid var(--line);padding:16px;border-radius:16px}.stat strong{display:block;font-size:28px}.stat span{color:var(--muted);font-size:13px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}input,select,button{font:inherit;border-radius:11px;border:1px solid var(--line);padding:11px 13px;background:var(--panel2);color:var(--text)}input{flex:1;min-width:220px}button{cursor:pointer;font-weight:800}.primary{background:var(--accent);border-color:transparent}
+    .list{display:grid;gap:12px}.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px}.card-head{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.title{font-size:19px;font-weight:900}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-size:12px;font-weight:900}.Pendiente{background:rgba(245,158,11,.16);color:#fbbf24}.Reparado{background:rgba(16,185,129,.16);color:#34d399}.Ignorado{background:rgba(156,163,175,.16);color:#d1d5db}
+    .meta{color:var(--muted);font-size:13px;margin:6px 0 10px}.problem{font-weight:800;margin:8px 0}.comment{background:var(--panel2);padding:10px;border-radius:10px;color:#dfe3ec;margin:10px 0}.links{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.links a{color:#b9c3ff;text-decoration:none;background:var(--panel2);padding:8px 10px;border-radius:9px;font-size:12px}.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}.actions button{padding:9px 11px}.empty{text-align:center;color:var(--muted);padding:50px}
+    @media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}.card-head{display:block}.badge{margin-top:8px}}
+  </style>
+</head>
+<body>
+<div class="app">
+  <div class="head">
+    <div><h1>CinePlay Admin</h1><div class="muted">Reportes, enlaces y estados</div></div>
+    <button class="primary" onclick="loadData()">Actualizar</button>
+  </div>
+
+  <div id="stats" class="stats"></div>
+
+  <div class="toolbar">
+    <input id="search" placeholder="Buscar película, serie, problema o servidor..." oninput="render()">
+    <select id="filter" onchange="render()">
+      <option value="Pendiente">Pendientes</option>
+      <option value="Todos">Todos</option>
+      <option value="Reparado">Reparados</option>
+      <option value="Ignorado">Ignorados</option>
+    </select>
+  </div>
+
+  <div id="list" class="list"></div>
+</div>
+
+<script>
+const ENDPOINT = location.href.split("?")[0];
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+let reports = [];
+let stats = {};
+
+function jsonp(params) {
+  return new Promise((resolve,reject)=>{
+    const cb="__cp_"+Date.now()+"_"+Math.random().toString(36).slice(2);
+    const s=document.createElement("script");
+    const timer=setTimeout(()=>{cleanup();reject(new Error("Tiempo agotado"));},15000);
+    function cleanup(){clearTimeout(timer);s.remove();try{delete window[cb]}catch(_){}}
+    window[cb]=r=>{cleanup();r?.ok?resolve(r):reject(new Error(r?.error||"Error"))};
+    s.onerror=()=>{cleanup();reject(new Error("No se pudo conectar"))};
+    const q=new URLSearchParams({...params,token:TOKEN,callback:cb,cache:Date.now()});
+    s.src=ENDPOINT+"?"+q.toString();
+    document.head.appendChild(s);
+  });
+}
+
+async function loadData(){
+  try{
+    const data=await jsonp({action:"list"});
+    reports=data.reports||[];
+    stats=data.stats||{};
+    renderStats();
+    render();
+  }catch(e){
+    document.querySelector("#list").innerHTML='<div class="empty">Error: '+escapeHtml(e.message)+'</div>';
+  }
+}
+
+function renderStats(){
+  const items=[
+    ["Reportes",stats.total||0],
+    ["Problemas únicos",stats.unique||0],
+    ["Pendientes",stats.pending||0],
+    ["Reparados",stats.repaired||0],
+    ["Ignorados",stats.ignored||0]
+  ];
+  document.querySelector("#stats").innerHTML=items.map(x=>`<div class="stat"><strong>${x[1]}</strong><span>${x[0]}</span></div>`).join("");
+}
+
+function render(){
+  const q=document.querySelector("#search").value.trim().toLowerCase();
+  const filter=document.querySelector("#filter").value;
+  const list=reports.filter(r=>{
+    const statusOk=filter==="Todos"||r.status===filter;
+    const text=[r.title,r.problem,r.server,r.year,r.comment,r.contentId].join(" ").toLowerCase();
+    return statusOk&&(!q||text.includes(q));
+  });
+
+  document.querySelector("#list").innerHTML=list.length?list.map(card).join(""):'<div class="empty">No hay reportes con este filtro.</div>';
+}
+
+function card(r){
+  const episode=r.type==="serie" ? ` · T${r.season||"-"} E${r.episode||"-"}` : "";
+  return `<article class="card">
+    <div class="card-head">
+      <div>
+        <div class="title">${escapeHtml(r.title)} ${r.year?`(${escapeHtml(r.year)})`:""}</div>
+        <div class="meta">${escapeHtml(r.type)}${episode} · ${escapeHtml(r.server||"Sin servidor")} · ${r.count} reporte(s)</div>
+      </div>
+      <span class="badge ${escapeHtml(r.status)}">${escapeHtml(r.status)}</span>
+    </div>
+    <div class="problem">${escapeHtml(r.problem)}</div>
+    ${r.comment?`<div class="comment">${escapeHtml(r.comment)}</div>`:""}
+    <div class="meta">Primer reporte: ${escapeHtml(r.firstReport)} · Último: ${escapeHtml(r.lastReport)}</div>
+    <div class="links">
+      ${r.pageUrl?`<a href="${attr(r.pageUrl)}" target="_blank" rel="noopener">Abrir página</a>`:""}
+      ${r.mediaUrl?`<a href="${attr(r.mediaUrl)}" target="_blank" rel="noopener">Abrir video</a>`:""}
+    </div>
+    <div class="actions">
+      <button onclick="setStatus('${js(r.id)}','Pendiente')">Pendiente</button>
+      <button onclick="setStatus('${js(r.id)}','Reparado')">Reparado</button>
+      <button onclick="setStatus('${js(r.id)}','Ignorado')">Ignorado</button>
+    </div>
+  </article>`;
+}
+
+async function setStatus(id,status){
+  try{
+    await jsonp({action:"status",id,status});
+    const item=reports.find(r=>r.id===id);
+    if(item)item.status=status;
+    renderStatsLocal();
+    render();
+  }catch(e){alert(e.message)}
+}
+
+function renderStatsLocal(){
+  stats.pending=reports.filter(r=>r.status==="Pendiente").length;
+  stats.repaired=reports.filter(r=>r.status==="Reparado").length;
+  stats.ignored=reports.filter(r=>r.status==="Ignorado").length;
+  renderStats();
+}
+
+function escapeHtml(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]))}
+function attr(v){return escapeHtml(v)}
+function js(v){return String(v??"").replace(/\\/g,"\\\\").replace(/'/g,"\\'")}
+loadData();
+</script>
+</body>
+</html>

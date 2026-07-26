@@ -972,7 +972,15 @@
         pageUrl: location.href,
         userAgent: navigator.userAgent,
         reportedAt: new Date().toISOString(),
-        comment: String(reportComment?.value || "").trim().slice(0, 500)
+        comment: String(reportComment?.value || "").trim().slice(0, 500),
+        reportKey: [
+          movie.id || "",
+          isSeries ? "serie" : "pelicula",
+          isSeries ? String(state.currentSeason + 1) : "",
+          isSeries ? String(state.currentEpisode + 1) : "",
+          source.name || "",
+          problem || ""
+        ].join("|").toLowerCase()
       };
 
       if (!endpoint || !/^https?:\/\//i.test(endpoint)) {
