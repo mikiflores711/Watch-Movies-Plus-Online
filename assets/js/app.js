@@ -409,7 +409,27 @@
       else if (videoElement) videoElement.poster = poster;
     }
 
-    function setPlayerSource(source) {
+    async function resolveAdminOverride(source) {
+      const endpoint = String(window.CINEPLAY_REPORT_URL || "").trim();
+      if (!endpoint || !source?.url || !state.currentMovie) return source;
+      const isSeries = state.currentMovie.type === "series";
+      try {
+        const result = await sendReportJsonp(endpoint, {
+          action: "resolve",
+          contentId: state.currentMovie.id || "",
+          season: isSeries ? state.currentSeason + 1 : "",
+          episode: isSeries ? state.currentEpisode + 1 : "",
+          server: source.name || source.title || ""
+        });
+        if (result?.ok && result?.found && /^https?:\/\//i.test(result.url || "")) {
+          return { ...source, url: result.url, originalUrl: source.url, overridden: true };
+        }
+      } catch (error) { console.warn("CinePlay: no se pudo consultar el enlace administrado", error); }
+      return source;
+    }
+
+    async function setPlayerSource(source) {
+      source = await resolveAdminOverride(source);
       if (!source?.url || !isDirectVideo(source)) return;
       const playerSource = { src: source.url, type: mediaMimeType(source) };
       if (videoPlayer) {
@@ -973,14 +993,7 @@
         userAgent: navigator.userAgent,
         reportedAt: new Date().toISOString(),
         comment: String(reportComment?.value || "").trim().slice(0, 500),
-        reportKey: [
-          movie.id || "",
-          isSeries ? "serie" : "pelicula",
-          isSeries ? String(state.currentSeason + 1) : "",
-          isSeries ? String(state.currentEpisode + 1) : "",
-          source.name || "",
-          problem || ""
-        ].join("|").toLowerCase()
+        reportKey: [movie.id || "", isSeries ? "serie" : "película", season, episode, source.name || source.title || "", problem].join("|")
       };
 
       if (!endpoint || !/^https?:\/\//i.test(endpoint)) {
