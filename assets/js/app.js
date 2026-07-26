@@ -865,6 +865,22 @@
 
     const reportOverlay=$("#reportOverlay");
     const reportOverlayHome=reportOverlay.parentElement;
+
+    // Campo opcional creado por JavaScript para no obligar a regenerar
+    // todas las plantillas HTML existentes.
+    let reportComment = $("#reportComment");
+    if (!reportComment && reportOverlay) {
+      reportComment = document.createElement("textarea");
+      reportComment.id = "reportComment";
+      reportComment.maxLength = 500;
+      reportComment.placeholder = "Comentario opcional: explica qué ocurre…";
+      reportComment.setAttribute("aria-label", "Comentario adicional del reporte");
+      reportComment.style.cssText =
+        "width:100%;min-height:82px;margin:12px 0;padding:12px;border:1px solid rgba(255,255,255,.14);border-radius:12px;background:#171a24;color:#fff;font:inherit;resize:vertical;box-sizing:border-box";
+
+      const options = reportOverlay.querySelector(".report-options");
+      if (options) options.insertAdjacentElement("afterend", reportComment);
+    }
     function playerIsFullscreen(){
       const shell=$("#playerRatio");
       return shell.classList.contains("pseudo-fullscreen") || document.fullscreenElement===shell || document.webkitFullscreenElement===shell;
@@ -892,6 +908,47 @@
     $("#helpButton").onclick=openReportOverlay;
     $("#closeReportOverlay").onclick=closeReportOverlay;
     reportOverlay.addEventListener("click",e=>{e.stopPropagation();if(e.target===reportOverlay)closeReportOverlay(e);});
+    function sendReportJsonp(endpoint, payload) {
+      return new Promise((resolve, reject) => {
+        const callbackName =
+          "__cineplayReport_" + Date.now() + "_" + Math.random().toString(36).slice(2);
+
+        const script = document.createElement("script");
+        const timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error("El receptor tardó demasiado en responder."));
+        }, 15000);
+
+        function cleanup() {
+          clearTimeout(timeout);
+          script.remove();
+          try { delete window[callbackName]; }
+          catch (_) { window[callbackName] = undefined; }
+        }
+
+        window[callbackName] = response => {
+          cleanup();
+          resolve(response);
+        };
+
+        script.onerror = () => {
+          cleanup();
+          reject(new Error("No se pudo conectar con el receptor."));
+        };
+
+        const params = new URLSearchParams({
+          action: "report",
+          callback: callbackName,
+          data: JSON.stringify(payload),
+          cache: String(Date.now())
+        });
+
+        script.src = endpoint + (endpoint.includes("?") ? "&" : "?") + params.toString();
+        script.async = true;
+        document.head.appendChild(script);
+      });
+    }
+
     async function sendContentReport(problem, button) {
       const endpoint = String(window.CINEPLAY_REPORT_URL || "").trim();
       const movie = state.currentMovie || {};
@@ -914,7 +971,8 @@
         mediaUrl: source.url || "",
         pageUrl: location.href,
         userAgent: navigator.userAgent,
-        reportedAt: new Date().toISOString()
+        reportedAt: new Date().toISOString(),
+        comment: String(reportComment?.value || "").trim().slice(0, 500)
       };
 
       if (!endpoint || !/^https?:\/\//i.test(endpoint)) {
@@ -927,21 +985,18 @@
       button.textContent = "Enviando…";
 
       try {
-        // Apps Script responde correctamente aunque el navegador trate la respuesta
-        // como opaca por CORS. El cuerpo se envía como texto JSON para evitar preflight.
-        await fetch(endpoint, {
-          method: "POST",
-          mode: "no-cors",
-          headers: { "Content-Type": "text/plain;charset=utf-8" },
-          body: JSON.stringify(payload),
-          keepalive: true
-        });
+        const result = await sendReportJsonp(endpoint, payload);
 
-        showToast("Reporte enviado. Gracias por avisar.");
+        if (!result?.ok) {
+          throw new Error(result?.error || "El receptor no confirmó el guardado.");
+        }
+
+        showToast("Reporte guardado correctamente.");
+        if (reportComment) reportComment.value = "";
         closeReportOverlay();
       } catch (error) {
         console.error("No se pudo enviar el reporte:", error);
-        showToast("No se pudo enviar. Revisa tu conexión e inténtalo otra vez.");
+        showToast("No se pudo guardar el reporte. Inténtalo nuevamente.");
       } finally {
         button.disabled = false;
         button.textContent = originalText;
