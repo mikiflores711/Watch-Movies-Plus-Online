@@ -12,11 +12,28 @@
     if (!response.ok) throw new Error(`TMDB ${response.status}`);
     return response.json();
   }
+  const pickLogo = images => {
+    const logos = images?.logos || [];
+    return logos.find(x => x.iso_639_1 === 'es') || logos.find(x => x.iso_639_1 === 'en') || logos[0] || null;
+  };
   window.TMDB = {
     get,
     image(path, size = 'original') { return path ? `${cfg.imageBase || 'https://image.tmdb.org/t/p/'}${size}${path}` : ''; },
-    async movie(id) { return Promise.all([get(`/movie/${id}`), get(`/movie/${id}/credits`)]).then(([details,credits]) => ({details,credits})); },
-    async tv(id) { return Promise.all([get(`/tv/${id}`), get(`/tv/${id}/credits`)]).then(([details,credits]) => ({details,credits})); },
+    pickLogo,
+    async movie(id) {
+      return Promise.all([
+        get(`/movie/${id}`),
+        get(`/movie/${id}/credits`),
+        get(`/movie/${id}/images`, { include_image_language: 'es,en,null' })
+      ]).then(([details,credits,images]) => ({details,credits,images}));
+    },
+    async tv(id) {
+      return Promise.all([
+        get(`/tv/${id}`),
+        get(`/tv/${id}/credits`),
+        get(`/tv/${id}/images`, { include_image_language: 'es,en,null' })
+      ]).then(([details,credits,images]) => ({details,credits,images}));
+    },
     season(id, number) { return get(`/tv/${id}/season/${number}`); }
   };
 })();
