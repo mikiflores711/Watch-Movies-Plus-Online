@@ -85,3 +85,40 @@
 @media(max-width:380px){
   .watch-row{grid-template-columns:1fr}
 }
+
+
+/* V2.5 — botones, reportes iPhone y orientación móvil */
+.watch-row .primary{
+  border:0!important;
+  background:#e50914!important;
+  color:#fff!important;
+  min-height:48px;
+  padding:13px 26px!important;
+  border-radius:8px!important;
+  font-weight:900;
+  line-height:1;
+  box-shadow:0 10px 28px rgba(229,9,20,.28);
+}
+.watch-row .primary::before,.watch-row .primary svg{display:none!important}
+.watch-row .primary:hover{background:#f6121d!important;transform:translateY(-1px)}
+.detail-favorite.active{
+  background:#f6c900!important;
+  border-color:#f6c900!important;
+  color:#151515!important;
+  box-shadow:0 10px 28px rgba(246,201,0,.28)!important;
+}
+.detail-favorite.active:hover{background:#ffd91a!important;border-color:#ffd91a!important}
+@media (max-width:900px) and (orientation:portrait){
+  .player-overlay.open.portrait-fallback{
+    position:fixed;
+    left:50%;top:50%;
+    width:100vh;height:100vw;
+    transform:translate(-50%,-50%) rotate(90deg);
+    transform-origin:center;
+    max-width:none;max-height:none;
+  }
+  .player-overlay.open.portrait-fallback media-player{width:100%;height:100%}
+}
+@supports (-webkit-touch-callout:none){
+  .report-options button,.report-close,.player-report{touch-action:manipulation;-webkit-user-select:none;user-select:none}
+}
