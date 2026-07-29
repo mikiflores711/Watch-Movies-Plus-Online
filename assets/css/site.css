@@ -6,3 +6,82 @@
 
 /* V2.3 favoritos de detalle y reporte sobre el reproductor */
 .watch-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}.detail-favorite{border:1px solid rgba(255,255,255,.35);border-radius:8px;background:rgba(20,24,25,.72);color:#fff;font-weight:900;padding:13px 20px;display:inline-flex;align-items:center;gap:9px;cursor:pointer;backdrop-filter:blur(10px)}.detail-favorite svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2}.detail-favorite.active{background:#fff;color:#111}.detail-favorite.active svg{fill:currentColor}.player-overlay .report-dialog{position:absolute}.player-overlay:fullscreen .report-dialog{position:absolute}.report-card{max-height:calc(100dvh - 36px);overflow:auto}.tmdb-note{display:none!important}@media(max-width:480px){.watch-row{align-items:stretch}.watch-row .primary,.detail-favorite{flex:1 1 100%;justify-content:center}}
+
+/* V2.4 — Favoritos profesional y reporte estrictamente dentro del reproductor */
+.detail-favorite{
+  min-height:52px;
+  padding:0 22px;
+  border:1px solid rgba(255,255,255,.34);
+  border-radius:8px;
+  background:rgba(16,19,21,.76);
+  color:#fff;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:11px;
+  font-size:17px;
+  font-weight:800;
+  line-height:1;
+  box-shadow:0 8px 24px rgba(0,0,0,.28);
+  backdrop-filter:blur(12px);
+  transition:background .2s,border-color .2s,transform .2s,box-shadow .2s;
+}
+.detail-favorite:hover{
+  transform:translateY(-1px);
+  background:rgba(255,255,255,.16);
+  border-color:rgba(255,255,255,.62);
+  box-shadow:0 11px 28px rgba(0,0,0,.36);
+}
+.detail-favorite svg{
+  width:23px;
+  height:23px;
+  flex:0 0 23px;
+  fill:transparent;
+  stroke:currentColor;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.detail-favorite.active{
+  background:#fff;
+  color:#111;
+  border-color:#fff;
+}
+.detail-favorite.active svg{fill:currentColor}
+.detail-favorite span{white-space:nowrap}
+
+.player-overlay{isolation:isolate}
+.player-overlay .player-report{
+  position:absolute;
+  display:none;
+  z-index:45;
+  right:max(18px,env(safe-area-inset-right));
+  top:max(16px,env(safe-area-inset-top));
+}
+.player-overlay.open .player-report{display:grid}
+.player-overlay .report-dialog{
+  position:absolute!important;
+  inset:0;
+  z-index:60;
+  width:100%;
+  height:100%;
+  overflow:hidden;
+  background:rgba(0,0,0,.66);
+  backdrop-filter:blur(7px);
+}
+.player-overlay .report-card{
+  width:min(470px,calc(100% - 32px));
+  max-height:min(620px,calc(100% - 32px));
+  overflow:auto;
+  box-shadow:0 24px 80px rgba(0,0,0,.62);
+}
+.player-overlay.report-open media-player{filter:brightness(.48)}
+
+@media(max-width:600px){
+  .watch-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .watch-row .primary,.watch-row .detail-favorite{width:100%;min-width:0;padding-inline:12px}
+  .detail-favorite{font-size:15px;min-height:48px}
+}
+@media(max-width:380px){
+  .watch-row{grid-template-columns:1fr}
+}
