@@ -23,8 +23,27 @@
     const detailView = $("#detailView");
     const videoElement = $("#directVideo");
     const serverOverlay = $("#serverOverlay");
-    const videoPlayer = null; // Reproductor nativo: menos peso, inicio más rápido y mejor compatibilidad móvil.
+    const videoPlayer = null; // Vidstack Web Component usa el proveedor HTML5 nativo para MP4.
     let hlsInstance = null;
+
+    // Vidstack administra la carga internamente. En el fallback <video>, load() sigue disponible.
+    function safeMediaLoad(media = videoElement) {
+      try {
+        if (media && typeof media.load === "function") media.load();
+      } catch (error) {
+        console.warn("CinePlay: no fue posible reiniciar la carga del medio", error);
+      }
+    }
+
+    function setMediaSource(media, source) {
+      if (!media) return;
+      // Vidstack acepta un objeto tipado; <video> requiere una URL de texto.
+      if (media.tagName?.toLowerCase() === "media-player") {
+        media.src = { src: source.url, type: mediaMimeType(source) };
+      } else {
+        media.src = source.url;
+      }
+    }
 
     /* ============================================================
        REPRODUCTOR CINEPLAY V4
@@ -224,7 +243,7 @@
       } else if (videoElement) {
         videoElement.pause();
         videoElement.removeAttribute("src");
-        videoElement.load();
+        safeMediaLoad(videoElement);
       }
     }
 
@@ -437,8 +456,8 @@
         videoPlayer.src(playerSource);
         videoPlayer.load();
       } else if (videoElement) {
-        videoElement.src = source.url;
-        videoElement.load();
+        setMediaSource(videoElement, source);
+        safeMediaLoad(videoElement);
       }
     }
 
@@ -483,7 +502,7 @@
     $("#helpButton").onclick = () => showToast(
       state.currentMovie?.type === "series"
         ? "Selecciona una temporada y un episodio; después toca el botón central de Video.js"
-        : "Toca el botón central para reproducir. Video.js incluye progreso, volumen, pantalla completa y Picture-in-Picture"
+        : "Toca el botón central para reproducir. Vidstack usa el motor HTML5 del navegador con los controles de CinePlay"
     );
     $("#serverMenuButton").onclick = openServerSheet;
     $("#closeServerSheet").onclick = closeServerSheet;
@@ -778,11 +797,11 @@
       ensureExternalFallback().style.display = "none";
       playerStatus(options.retry ? "Reconectando con el servidor…" : "Preparando video…", "loading");
       if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
-      try { videoElement.pause(); [...videoElement.querySelectorAll("track")].forEach(track => track.remove()); videoElement.removeAttribute("src"); videoElement.load(); } catch (_) {}
+      try { videoElement.pause(); if (typeof videoElement.querySelectorAll === "function") [...videoElement.querySelectorAll("track")].forEach(track => track.remove()); videoElement.removeAttribute("src"); safeMediaLoad(videoElement); } catch (_) {}
       const url = source.url;
       const isHls = /\.m3u8(?:$|\?)/i.test(url) || source.type === "hls";
-      const nativeHls = isHls && Boolean(videoElement.canPlayType("application/vnd.apple.mpegurl"));
-      if (nativeHls) { videoElement.src = url; videoElement.load(); }
+      const nativeHls = isHls && Boolean(typeof videoElement.canPlayType === "function" && videoElement.canPlayType("application/vnd.apple.mpegurl"));
+      if (nativeHls) { setMediaSource(videoElement, { url, type: isHls ? "hls" : "mp4" }); safeMediaLoad(videoElement); }
       else if (isHls && window.Hls?.isSupported()) {
         hlsInstance = new Hls({enableWorker:true,lowLatencyMode:false,backBufferLength:30,manifestLoadingMaxRetry:2,levelLoadingMaxRetry:2,fragLoadingMaxRetry:2});
         hlsInstance.on(Hls.Events.ERROR, (_, data) => {
@@ -791,8 +810,8 @@
           else { playerStatus("No se pudo cargar la transmisión.", "error"); ensureExternalFallback().style.display = "block"; }
         });
         hlsInstance.loadSource(url); hlsInstance.attachMedia(videoElement);
-      } else { videoElement.src = url; videoElement.load(); }
-      (source.subtitles || []).forEach((sub, index) => { const track=document.createElement("track"); track.kind="subtitles"; track.label=sub.label||sub.language||`Subtítulos ${index+1}`; track.srclang=sub.language||"es"; track.src=sub.url; videoElement.appendChild(track); });
+      } else { setMediaSource(videoElement, { url, type: isHls ? "hls" : "mp4" }); safeMediaLoad(videoElement); }
+      (source.subtitles || []).forEach((sub, index) => { const track=document.createElement("track"); track.kind="subtitles"; track.label=sub.label||sub.language||`Subtítulos ${index+1}`; track.srclang=sub.language||"es"; track.src=sub.url; if (videoElement.tagName?.toLowerCase() !== "media-player") videoElement.appendChild(track); });
       playerUi.classList.add("initial-state", "is-paused"); syncPlayerUi(); armPlayerLoadTimer(token);
     }
 

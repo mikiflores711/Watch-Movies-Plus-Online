@@ -7,6 +7,15 @@
   <title>Río | CinePlay</title>
   <link rel="stylesheet" href="assets/css/catalogo.css" />
   <link rel="stylesheet" href="assets/css/reproductor.css" />
+
+  <!-- CinePlay Player V5: conexión anticipada con Internet Archive -->
+  <link rel="preconnect" href="https://archive.org" crossorigin />
+  <link rel="dns-prefetch" href="//archive.org" />
+  <link rel="preconnect" href="https://ia800000.us.archive.org" crossorigin />
+  <link rel="dns-prefetch" href="//us.archive.org" />
+
+  <!-- Vidstack Web Components (motor de reproducción; la interfaz CinePlay se conserva) -->
+  <script type="module" src="https://cdn.vidstack.io/player"></script>
 </head>
 <body>
 
@@ -196,7 +205,9 @@
     <section id="detailView" class="detail-view">
       <div class="player-shell">
         <div class="player-ratio" id="playerRatio">
-          <video id="directVideo" playsinline webkit-playsinline preload="metadata" controlslist="nodownload noremoteplayback" disablepictureinpicture aria-label="Reproductor de películas y series"></video>
+          <media-player id="directVideo" class="cineplay-vidstack" playsinline preload="metadata" load="visible" aria-label="Reproductor de películas y series">
+            <media-provider></media-provider>
+          </media-player>
 
           <div id="playerUi" class="custom-player-ui is-paused initial-state" tabindex="0" aria-label="Controles del reproductor">
             <div class="player-top auto-hide">
@@ -371,7 +382,7 @@
 
   
   <script>
-    window.CINEPLAY_VERSION = "4.0";
+    window.CINEPLAY_VERSION = "5.0-vidstack";
     window.CINEPLAY_REPORT_URL = "https://script.google.com/macros/s/AKfycbyO0N65CFsRxN2z5n0w-0kPq45K70jU9FblW0Iis5ZDse72OubEUQY54sFnzCiIJkl2/exec";
     window.CINEPLAY_CATALOG = [
   {
@@ -417,7 +428,6 @@
     }
   </script>
 
-  <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.18/dist/hls.min.js"></script>
-<script src="assets/js/app.js"></script>
+  <script src="assets/js/app.js"></script>
 </body>
 </html>

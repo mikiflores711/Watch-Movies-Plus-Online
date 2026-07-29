@@ -1676,3 +1676,38 @@
       visibility: hidden !important;
       pointer-events: none !important;
     }
+
+
+/* ============================================================
+   CINEPLAY PLAYER V5 · VIDSTACK + MP4 INTERNET ARCHIVE
+   ============================================================ */
+media-player#directVideo,
+.cineplay-vidstack {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #000;
+  --media-brand: #5571ff;
+  --media-focus-ring-color: #8fa7ff;
+}
+
+media-player#directVideo media-provider {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+media-player#directVideo video {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  background: #000;
+}
+
+/* Evita que el elemento personalizado capture clics destinados a la UI CinePlay. */
+media-player#directVideo { pointer-events: auto; }
+.custom-player-ui { pointer-events: auto; }
