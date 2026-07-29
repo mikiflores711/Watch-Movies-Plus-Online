@@ -1711,3 +1711,30 @@ media-player#directVideo video {
 /* Evita que el elemento personalizado capture clics destinados a la UI CinePlay. */
 media-player#directVideo { pointer-events: auto; }
 .custom-player-ui { pointer-events: auto; }
+
+
+/* CinePlay V5.1: portada visible antes de iniciar el MP4 */
+#playerRatio {
+  --cineplay-player-poster: none;
+  background-image: var(--cineplay-player-poster);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.custom-player-ui.initial-state {
+  background-image:
+    linear-gradient(180deg, rgba(0,0,0,.18), rgba(0,0,0,.05) 42%, rgba(0,0,0,.42)),
+    var(--cineplay-player-poster);
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+}
+
+.custom-player-ui:not(.initial-state) {
+  background-image: none;
+}
+
+.sheet-actions .sheet-action:only-child {
+  flex: 1 1 100%;
+}

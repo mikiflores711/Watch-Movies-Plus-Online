@@ -424,8 +424,14 @@
     function setPlayerPoster(movie = state.currentMovie) {
       if (!movie) return;
       const poster = makePoster(movie, true);
-      if (videoPlayer) videoPlayer.poster(poster);
-      else if (videoElement) videoElement.poster = poster;
+      const playerRatio = $("#playerRatio");
+      if (playerRatio) playerRatio.style.setProperty("--cineplay-player-poster", `url("${poster}")`);
+      if (videoPlayer) {
+        videoPlayer.poster(poster);
+      } else if (videoElement) {
+        videoElement.poster = poster;
+        videoElement.setAttribute("poster", poster);
+      }
     }
 
     async function resolveAdminOverride(source) {
@@ -491,7 +497,7 @@
       videoPlayer.on("ended", handlePlaybackEnded);
       videoPlayer.on("error", () => {
         const error = videoPlayer.error();
-        if (error) showToast("No se pudo reproducir este MP4. Prueba abrirlo en una pestaña nueva");
+        if (error) showToast("No se pudo reproducir este MP4");
       });
     } else if (videoElement) {
       videoElement.addEventListener("ended", handlePlaybackEnded);
@@ -506,10 +512,8 @@
     );
     $("#serverMenuButton").onclick = openServerSheet;
     $("#closeServerSheet").onclick = closeServerSheet;
-    $("#openExternalServer").onclick = () => {
-      const source = currentSource();
-      if (source) window.open(source.url, "_blank", "noopener,noreferrer");
-    };
+    const openExternalServerButton = $("#openExternalServer");
+    if (openExternalServerButton) openExternalServerButton.remove();
     serverOverlay.addEventListener("click", event => {
       if (event.target === serverOverlay) closeServerSheet();
     });
@@ -633,7 +637,7 @@
       } catch (error) {
         playerV4.userRequestedPlay = false;
         if (error?.name === "NotAllowedError") playerStatus("Safari bloqueó este intento. Toca otra vez el botón de reproducir.", "error");
-        else if (error?.name === "NotSupportedError") { playerStatus("Safari no admite el formato o códec de este archivo.", "error"); ensureExternalFallback().style.display = "block"; }
+        else if (error?.name === "NotSupportedError") { playerStatus("El navegador no admite el formato o códec de este archivo.", "error"); ensureExternalFallback().style.display = "block"; }
         else { playerStatus("No se pudo iniciar. Espera unos segundos y toca reproducir otra vez.", "error"); if (playerV4.retryCount < playerV4.maxRetries) retryCurrentSource(); else ensureExternalFallback().style.display = "block"; }
         console.warn("CinePlay playback error:", error);
       }
@@ -679,17 +683,9 @@
     }
 
     function ensureExternalFallback() {
-      let button = $("#playerV4External");
-      if (!button) {
-        button = document.createElement("button");
-        button.id = "playerV4External";
-        button.type = "button";
-        button.textContent = "Abrir video directamente";
-        button.style.cssText = "position:absolute;left:50%;bottom:32px;transform:translateX(-50%);z-index:41;border:0;border-radius:999px;padding:11px 16px;background:#fff;color:#111;font:800 13px system-ui,sans-serif;box-shadow:0 8px 24px rgba(0,0,0,.35);display:none;cursor:pointer";
-        button.onclick = event => { event.stopPropagation(); const source = currentSource(); if (source?.url) window.open(source.url, "_blank", "noopener,noreferrer"); };
-        $("#playerRatio")?.appendChild(button);
-      }
-      return button;
+      // CinePlay V5 mantiene la reproducción dentro del sitio.
+      // Se conserva un objeto neutro para no alterar la lógica de reintentos.
+      return { style: { display: "none" } };
     }
 
     function playerErrorMessage(error = videoElement?.error) {
@@ -740,7 +736,7 @@
       playerV4.loadTimer = setTimeout(() => {
         if (token !== playerV4.token || videoElement.readyState >= 1) return;
         if (playerV4.retryCount < playerV4.maxRetries) retryCurrentSource("El servidor está tardando. Reintentando…");
-        else { playerStatus("El servidor tardó demasiado. Prueba abrir el video directamente.", "error"); ensureExternalFallback().style.display = "block"; }
+        else { playerStatus("El servidor tardó demasiado. Intenta nuevamente en unos segundos.", "error"); ensureExternalFallback().style.display = "block"; }
       }, 15000);
     }
 
@@ -1068,8 +1064,17 @@
     function init() {
       setupHero();
       renderCatalog();
+
+      const directMovieId = String(window.CINEPLAY_PAGE_ID || "").trim();
       const match = location.hash.match(/pelicula=([^&]+)/);
-      if (match) openMovie(decodeURIComponent(match[1]), false);
+      const movieId = directMovieId || (match ? decodeURIComponent(match[1]) : "");
+
+      if (movieId) {
+        // Las páginas individuales deben entrar directamente al reproductor,
+        // sin mostrar antes el catálogo/hero de la película.
+        openMovie(movieId, false);
+        history.replaceState({ movieId }, "", `${location.pathname}#pelicula=${encodeURIComponent(movieId)}`);
+      }
     }
 
     init();
