@@ -1,9 +1,11 @@
 (() => {
   const movies = window.WMP_MOVIES || [];
   const series = window.WMP_SERIES || [];
-  const allItems = [...movies, ...series];
   const FAVORITES_KEY = 'wmp_favorites';
-  const getFavorites = () => new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]'));
+  const getFavorites = () => {
+    try { return new Set(JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]')); }
+    catch (_) { return new Set(); }
+  };
   const saveFavorites = set => localStorage.setItem(FAVORITES_KEY, JSON.stringify([...set]));
   const itemKey = item => `${item.type}:${item.href}`;
 
@@ -13,9 +15,9 @@
     const key = itemKey(item);
     const active = getFavorites().has(key);
     wrap.innerHTML = `<a class="card-link" href="${item.href}"><div class="poster"><img src="${item.poster}" alt="${item.title}" loading="lazy"></div><h3>${item.title}</h3><p>${item.year} · ${item.genre||''}</p></a><button class="card-favorite ${active?'active':''}" type="button" aria-label="${active?'Quitar de':'Agregar a'} favoritos" title="Favoritos"><svg viewBox="0 0 24 24"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8l1.1 1.1L12 21l7.8-7.5 1.1-1.1a5.5 5.5 0 0 0-.1-7.8Z"></path></svg></button>`;
-    wrap.querySelector('.card-favorite').onclick = () => {
+    wrap.querySelector('.card-favorite').onclick = event => {
+      event.preventDefault(); event.stopPropagation();
       const favs=getFavorites(); favs.has(key)?favs.delete(key):favs.add(key); saveFavorites(favs);
-      document.querySelectorAll('.card-favorite').forEach(btn=>{});
       renderCurrent();
     };
     return wrap;
@@ -24,6 +26,7 @@
   const movieRail=document.querySelector('#movieRail');
   const seriesRail=document.querySelector('#seriesRail');
   const grid=document.querySelector('#catalogGrid');
+  const favoritesGrid=document.querySelector('#favoritesGrid');
   let currentQuery='';
   function renderCurrent(){
     if(movieRail){ movieRail.innerHTML=''; movies.forEach(m=>movieRail.appendChild(makeCard(m))); }
@@ -32,6 +35,11 @@
       const source=document.body.dataset.catalog==='tv'?series:movies;
       grid.innerHTML=''; const filtered=source.filter(x=>`${x.title} ${x.year} ${x.genre||''}`.toLowerCase().includes(currentQuery.toLowerCase()));
       filtered.forEach(x=>grid.appendChild(makeCard(x))); document.querySelector('#empty')?.classList.toggle('hidden',filtered.length>0);
+    }
+    if(favoritesGrid){
+      const favs=getFavorites(); const selected=[...movies,...series].filter(x=>favs.has(itemKey(x)));
+      favoritesGrid.innerHTML=''; selected.forEach(x=>favoritesGrid.appendChild(makeCard(x)));
+      document.querySelector('#favoritesEmpty')?.classList.toggle('hidden',selected.length>0);
     }
   }
   renderCurrent();
@@ -57,20 +65,18 @@
     return overlay;
   }
   function openDialog(html){const o=ensureDialog();o.querySelector('#dialogBody').innerHTML=html;o.classList.add('open');o.setAttribute('aria-hidden','false')}
-  function renderFavorites(){
-    const favs=getFavorites(), selected=allItems.filter(x=>favs.has(itemKey(x)));
-    openDialog(`<h2>Favoritos</h2><p class="dialog-intro">Tus películas y series guardadas.</p><div id="favoriteDialogGrid" class="favorite-dialog-grid"></div>${selected.length?'':'<div class="dialog-empty">Todavía no agregaste contenido a favoritos.</div>'}`);
-    const holder=document.querySelector('#favoriteDialogGrid'); selected.forEach(x=>holder.appendChild(makeCard(x)));
-  }
   function renderSettings(){
-    openDialog(`<h2>Ajustes</h2><div class="settings-menu"><button data-info="about">Quiénes somos</button><button data-info="legal">Aviso legal</button><button data-info="terms">Términos y condiciones</button></div><div id="settingsText" class="settings-text"><p>Selecciona una opción para consultar la información.</p></div>`);
+    openDialog(`<h2>Ajustes</h2><div class="settings-menu"><button data-info="about">Quiénes somos</button><button data-info="legal">Aviso legal</button><button data-info="terms">Términos y condiciones</button></div><div id="settingsText" class="settings-text hidden"></div>`);
     const texts={
-      about:'<h3>Quiénes somos</h3><p>Watch Movies Plus es un catálogo web independiente diseñado para organizar contenido disponible mediante enlaces externos. No somos una plataforma oficial de Netflix, Disney, TMDB ni Internet Archive.</p>',
-      legal:'<h3>Aviso legal</h3><p>Este sitio no aloja archivos de video en sus propios servidores. El contenido se reproduce desde servicios externos. Los derechos de nombres, imágenes y obras pertenecen a sus respectivos titulares.</p>',
-      terms:'<h3>Términos y condiciones</h3><p>Al utilizar este sitio aceptas hacerlo conforme a las leyes aplicables. Los enlaces pueden cambiar o dejar de estar disponibles. El sitio puede retirar contenido reportado o modificar sus funciones sin previo aviso.</p>'
+      about:'<h3>Quiénes somos</h3><p>Watch Movies Plus es un sitio de entretenimiento creado para reunir películas y series en una interfaz sencilla, rápida y adaptable a diferentes dispositivos.</p><p>Nuestro objetivo es facilitar la navegación, la organización de favoritos y el acceso a la información de cada título disponible.</p>',
+      legal:'<h3>Aviso legal</h3><p>Los nombres, imágenes, personajes y obras mostrados pertenecen a sus respectivos titulares. Este sitio funciona como un catálogo informativo y reproductor web.</p><p>Si eres titular de derechos y consideras que algún contenido debe revisarse, utiliza el botón de reporte disponible dentro del reproductor.</p>',
+      terms:'<h3>Términos y condiciones</h3><p>Al utilizar este sitio aceptas hacerlo de forma responsable y conforme a las leyes aplicables en tu ubicación.</p><p>La disponibilidad del contenido puede cambiar sin previo aviso. También pueden realizarse mejoras, correcciones o ajustes de funcionamiento cuando sea necesario.</p>'
     };
-    document.querySelectorAll('[data-info]').forEach(b=>b.onclick=()=>document.querySelector('#settingsText').innerHTML=texts[b.dataset.info]);
+    document.querySelectorAll('[data-info]').forEach(b=>b.onclick=()=>{const box=document.querySelector('#settingsText');box.innerHTML=texts[b.dataset.info];box.classList.remove('hidden');document.querySelectorAll('[data-info]').forEach(x=>x.classList.toggle('active',x===b));});
   }
-  document.querySelectorAll('[data-nav-action]').forEach(btn=>btn.onclick=()=>btn.dataset.navAction==='favorites'?renderFavorites():renderSettings());
+  document.querySelectorAll('[data-nav-action]').forEach(btn=>btn.onclick=()=>{
+    if(btn.dataset.navAction==='favorites') location.assign('favoritos.html');
+    else renderSettings();
+  });
   document.querySelectorAll('.nav-home').forEach(a=>a.classList.toggle('active',location.pathname.endsWith('/')||location.pathname.endsWith('/index.html')));
 })();
