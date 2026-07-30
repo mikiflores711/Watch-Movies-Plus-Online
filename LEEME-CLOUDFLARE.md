@@ -11,3 +11,9 @@ Paquete completo con frontend, Worker de Cloudflare, base D1 y panel administrat
 - `assets/js/config.js`: URL de la API.
 
 Consulta `INSTALACION-CLOUDFLARE.txt` para los pasos exactos.
+
+
+## Variables del administrador
+- `ADMIN_USER`: usuario del panel (por ejemplo `admin`).
+- `ADMIN_PASSWORD`: contraseña guardada como secreto.
+- El Worker también acepta `ADMIN_USERNAME` para compatibilidad con versiones anteriores.
