@@ -1,0 +1,14 @@
+WORKER
+Nombre recomendado: watch-movies-plus-api
+
+VINCULACIÓN D1
+Variable: DB
+Base: watch-movies-db
+
+SECRETOS / VARIABLES
+ADMIN_PASSWORD = la contraseña del panel
+ADMIN_USERNAME = admin (opcional; si no se crea, usa admin)
+ALLOWED_ORIGINS = https://mikiflores711.github.io (opcional)
+
+URL FINAL
+https://watch-movies-plus-api.mikimc-business.workers.dev
