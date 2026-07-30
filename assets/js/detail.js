@@ -1,1 +1,196 @@
-(async()=>{const id=new URLSearchParams(location.search).get('id');const item=(window.WMP_CONTENT||[]).find(x=>x.id===id);if(!item){document.body.innerHTML='<main class="shell"><h1>Contenido no encontrado</h1><a href="index.html">Volver</a></main>';return}document.title=item.title;const $=s=>document.querySelector(s);const bg=$('#heroBg'),logo=$('#titleLogo'),fallback=$('#fallbackTitle'),meta=$('#meta'),overview=$('#overview'),credits=$('#credits'),cast=$('#cast');bg.style.backgroundImage=`url('${item.backdrop}')`;fallback.textContent=item.title;overview.textContent=item.description||'';const favKey='wmp_favorites_v3'; const favBtns=[...document.querySelectorAll('[data-detail-favorite]')]; const favBtn=item.type==='movie'?favBtns[0]:favBtns[1]; if(item.type==='movie')document.getElementById('seriesFavorite').classList.add('hidden');const favs=()=>{try{return new Set(JSON.parse(localStorage.getItem(favKey)||'[]'))}catch{return new Set()}};function sync(){const a=favs().has(item.id);favBtn.classList.toggle('active',a);favBtn.querySelector('span').textContent=a?'En favoritos':'Mi lista'}favBtn.onclick=()=>{const s=favs();s.has(item.id)?s.delete(item.id):s.add(item.id);localStorage.setItem(favKey,JSON.stringify([...s]));sync()};sync();let details,people=[],poster=item.backdrop;try{const data=item.type==='movie'?await TMDB.movie(item.tmdbId):await TMDB.tv(item.tmdbId);details=data.details;people=(data.credits.cast||[]).slice(0,12);poster=TMDB.image(details.backdrop_path||details.poster_path,'original')||poster;bg.style.backgroundImage=`url('${poster}')`;const lg=TMDB.pickLogo(data.images);if(lg){logo.src=TMDB.image(lg.file_path,'w500');logo.classList.remove('hidden');fallback.classList.add('hidden')}overview.textContent=details.overview||item.description||'Sin descripción disponible.';if(item.type==='movie'){meta.innerHTML=`<span>${(details.release_date||String(item.year)).slice(0,4)}</span><span>${details.runtime||''} min</span><span>${(details.genres||[]).map(g=>g.name).join(' · ')||item.genre}</span>`;credits.innerHTML=`<strong>Elenco:</strong> ${people.slice(0,5).map(p=>p.name).join(', ')}`;}else{meta.innerHTML=`<span>${(details.first_air_date||String(item.year)).slice(0,4)}</span><span>${details.number_of_seasons||Object.keys(item.seasons||{}).length} temporadas</span><span>${(details.genres||[]).map(g=>g.name).join(' · ')||item.genre}</span>`;credits.innerHTML=`<strong>Elenco:</strong> ${people.slice(0,5).map(p=>p.name).join(', ')}<br><strong>Creadores:</strong> ${(details.created_by||[]).map(p=>p.name).join(', ')||'No disponible'}`}}catch{meta.innerHTML=`<span>${item.year}</span><span>${item.genre}</span>`}cast.innerHTML=people.map(p=>`<article class="cast-card"><img src="${TMDB.image(p.profile_path,'w300')||''}" alt="${p.name}"><div class="cast-copy"><strong>${p.name}</strong><small>${p.character||''}</small></div></article>`).join('');if(item.type==='movie'){$('#movieActions').classList.remove('hidden');$('#watchMovie').onclick=()=>openWmpPlayer({src:item.video,poster,title:item.title,contentTitle:item.title,contentId:item.id,kind:'película',server:'Servidor principal'})}else{$('#episodesSection').classList.remove('hidden');const select=$('#seasonSelect');Object.keys(item.seasons||{}).forEach(n=>select.add(new Option(`Temporada ${n}`,n)));async function season(n){const rail=$('#episodeGrid');rail.innerHTML='<div>Cargando episodios…</div>';let eps=[];try{eps=(await TMDB.season(item.tmdbId,n)).episodes||[]}catch{}const links=item.seasons[n]||[];rail.innerHTML=links.map((src,i)=>{const ep=eps[i]||{episode_number:i+1,name:`Episodio ${i+1}`,overview:'',runtime:''};const still=TMDB.image(ep.still_path,'w780')||poster;return `<button class="episode-card" data-src="${src}" data-title="${item.title} T${n} E${i+1}: ${ep.name}" data-poster="${still}"><div class="episode-still"><img src="${still}" alt="${ep.name}"><span class="duration">${ep.runtime?ep.runtime+' min':''}</span></div><div class="episode-copy"><h3>${i+1}. ${ep.name}</h3><p>${ep.overview||'Sin descripción disponible.'}</p></div></button>`}).join('');rail.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>openWmpPlayer({src:b.dataset.src,poster:b.dataset.poster,title:b.dataset.title,contentTitle:item.title,contentId:item.id,kind:'serie',season:n,episode:i+1,server:'Servidor principal'}));rail.scrollLeft=0}select.onchange=()=>season(select.value);$('#prevEpisodes').onclick=()=>$('#episodeGrid').scrollBy({left:-$('#episodeGrid').clientWidth*.86,behavior:'smooth'});$('#nextEpisodes').onclick=()=>$('#episodeGrid').scrollBy({left:$('#episodeGrid').clientWidth*.86,behavior:'smooth'});season(Object.keys(item.seasons)[0])}})();
+(async () => {
+  const id = new URLSearchParams(location.search).get('id');
+  const item = (window.WMP_CONTENT || []).find(entry => entry.id === id);
+  if (!item) {
+    document.body.innerHTML = '<main class="shell"><h1>Contenido no encontrado</h1><a href="index.html">Volver</a></main>';
+    return;
+  }
+
+  document.title = item.title;
+  const $ = selector => document.querySelector(selector);
+  const bg = $('#heroBg');
+  const logo = $('#titleLogo');
+  const fallback = $('#fallbackTitle');
+  const meta = $('#meta');
+  const overview = $('#overview');
+  const credits = $('#credits');
+  const cast = $('#cast');
+  let details;
+  let people = [];
+  let poster = item.backdrop;
+
+  bg.style.backgroundImage = `url('${item.backdrop}')`;
+  fallback.textContent = item.title;
+  overview.textContent = item.description || '';
+
+  const favKey = 'wmp_favorites_v3';
+  const favBtns = [...document.querySelectorAll('[data-detail-favorite]')];
+  const favBtn = item.type === 'movie' ? favBtns[0] : favBtns[1];
+  if (item.type === 'movie') $('#seriesFavorite').classList.add('hidden');
+  const favorites = () => {
+    try { return new Set(JSON.parse(localStorage.getItem(favKey) || '[]')); }
+    catch { return new Set(); }
+  };
+  function syncFavorite() {
+    const active = favorites().has(item.id);
+    favBtn.classList.toggle('active', active);
+    favBtn.querySelector('span').textContent = active ? 'En favoritos' : 'Mi lista';
+  }
+  favBtn.onclick = () => {
+    const set = favorites();
+    set.has(item.id) ? set.delete(item.id) : set.add(item.id);
+    localStorage.setItem(favKey, JSON.stringify([...set]));
+    syncFavorite();
+  };
+  syncFavorite();
+
+  try {
+    const data = item.type === 'movie' ? await TMDB.movie(item.tmdbId) : await TMDB.tv(item.tmdbId);
+    details = data.details;
+    people = (data.credits.cast || []).slice(0, 12);
+    poster = TMDB.image(details.backdrop_path || details.poster_path, 'original') || poster;
+    bg.style.backgroundImage = `url('${poster}')`;
+    const selectedLogo = TMDB.pickLogo(data.images);
+    if (selectedLogo) {
+      logo.src = TMDB.image(selectedLogo.file_path, 'w500');
+      logo.classList.remove('hidden');
+      fallback.classList.add('hidden');
+    }
+    overview.textContent = details.overview || item.description || 'Sin descripción disponible.';
+    if (item.type === 'movie') {
+      meta.innerHTML = `<span>${(details.release_date || String(item.year)).slice(0, 4)}</span><span>${details.runtime || ''} min</span><span>${(details.genres || []).map(g => g.name).join(' · ') || item.genre}</span>`;
+      credits.innerHTML = `<strong>Elenco:</strong> ${people.slice(0, 5).map(person => person.name).join(', ')}`;
+    } else {
+      meta.innerHTML = `<span>${(details.first_air_date || String(item.year)).slice(0, 4)}</span><span>${details.number_of_seasons || Object.keys(item.seasons || {}).length} temporadas</span><span>${(details.genres || []).map(g => g.name).join(' · ') || item.genre}</span>`;
+      credits.innerHTML = `<strong>Elenco:</strong> ${people.slice(0, 5).map(person => person.name).join(', ')}<br><strong>Creadores:</strong> ${(details.created_by || []).map(person => person.name).join(', ') || 'No disponible'}`;
+    }
+  } catch (_) {
+    meta.innerHTML = `<span>${item.year}</span><span>${item.genre}</span>`;
+  }
+
+  cast.innerHTML = people.map(person => `<article class="cast-card"><img src="${TMDB.image(person.profile_path, 'w300') || ''}" alt="${person.name}"><div class="cast-copy"><strong>${person.name}</strong><small>${person.character || ''}</small></div></article>`).join('');
+
+  const reportDialog = $('#reportDialog');
+  const reportContext = $('#reportContext');
+  const reportStatus = $('#reportStatus');
+  const reportComment = $('#reportComment');
+  let reportTarget = null;
+
+  function openReport(target) {
+    reportTarget = target;
+    reportContext.textContent = target.kind === 'serie'
+      ? `${target.contentTitle} · Temporada ${target.season} · Episodio ${target.episode}${target.episodeTitle ? ` · ${target.episodeTitle}` : ''}`
+      : target.contentTitle;
+    reportStatus.textContent = '';
+    reportComment.value = '';
+    reportDialog.classList.add('open');
+    reportDialog.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('dialog-open');
+  }
+  function closeReport() {
+    reportDialog.classList.remove('open');
+    reportDialog.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('dialog-open');
+  }
+  $('#closeReport').onclick = closeReport;
+  reportDialog.onclick = event => { if (event.target === reportDialog) closeReport(); };
+
+  async function sendReport(problem) {
+    if (!reportTarget) return;
+    const api = String(window.WMP_CONFIG?.reportApiUrl || '').replace(/\/$/, '');
+    if (!api) throw new Error('Falta configurar reportApiUrl.');
+    const payload = {
+      tipo: reportTarget.kind,
+      titulo: reportTarget.contentTitle,
+      contenidoId: reportTarget.contentId,
+      anio: item.year || '',
+      temporada: reportTarget.season || '',
+      episodio: reportTarget.episode || '',
+      tituloEpisodio: reportTarget.episodeTitle || '',
+      servidor: reportTarget.server || 'Servidor principal',
+      video: reportTarget.src || '',
+      problema: problem,
+      comentario: reportComment.value.trim().slice(0, 500),
+      pagina: location.href,
+      userAgent: navigator.userAgent
+    };
+    const response = await fetch(`${api}/api/report`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    let result = {};
+    try { result = await response.json(); } catch (_) {}
+    if (!response.ok || result.ok === false) throw new Error(result.error || 'No se pudo enviar el reporte.');
+    return result;
+  }
+
+  $('#reportOptions').querySelectorAll('button').forEach(button => {
+    button.onclick = async () => {
+      reportStatus.textContent = 'Enviando reporte…';
+      button.disabled = true;
+      try {
+        const result = await sendReport(button.textContent.trim());
+        reportStatus.textContent = result.grouped
+          ? `Reporte enviado. Ya fue reportado ${result.cantidad} veces.`
+          : 'Reporte enviado correctamente.';
+        setTimeout(closeReport, 1300);
+      } catch (error) {
+        reportStatus.textContent = error.message || 'No se pudo enviar el reporte.';
+      } finally {
+        button.disabled = false;
+      }
+    };
+  });
+
+  if (item.type === 'movie') {
+    $('#movieActions').classList.remove('hidden');
+    const movieMedia = { src: item.video, poster, title: item.title, contentTitle: item.title, contentId: item.id, kind: 'película', server: 'Servidor principal' };
+    $('#watchMovie').onclick = () => openWmpPlayer(movieMedia);
+    $('#reportMovie').onclick = () => openReport(movieMedia);
+  } else {
+    $('#episodesSection').classList.remove('hidden');
+    const select = $('#seasonSelect');
+    Object.keys(item.seasons || {}).forEach(number => select.add(new Option(`Temporada ${number}`, number)));
+
+    async function renderSeason(number) {
+      const rail = $('#episodeGrid');
+      rail.innerHTML = '<div>Cargando episodios…</div>';
+      let episodes = [];
+      try { episodes = (await TMDB.season(item.tmdbId, number)).episodes || []; } catch (_) {}
+      const links = item.seasons[number] || [];
+      rail.innerHTML = links.map((src, index) => {
+        const episode = episodes[index] || { episode_number: index + 1, name: `Episodio ${index + 1}`, overview: '', runtime: '' };
+        const still = TMDB.image(episode.still_path, 'w780') || poster;
+        const safeTitle = String(episode.name || `Episodio ${index + 1}`).replace(/"/g, '&quot;');
+        return `<article class="episode-card" data-src="${src}" data-title="${item.title} T${number} E${index + 1}: ${safeTitle}" data-episode-title="${safeTitle}" data-poster="${still}" data-episode="${index + 1}"><div class="episode-still"><img src="${still}" alt="${safeTitle}"><button type="button" class="episode-play" aria-label="Reproducir episodio ${index + 1}"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></button><button type="button" class="episode-report" aria-label="Reportar episodio ${index + 1}" title="Reportar contenido caído"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 17h.01"></path></svg></button><span class="duration">${episode.runtime ? `${episode.runtime} min` : ''}</span></div><div class="episode-copy"><h3>${index + 1}. ${episode.name}</h3><p>${episode.overview || 'Sin descripción disponible.'}</p></div></article>`;
+      }).join('');
+
+      rail.querySelectorAll('.episode-card').forEach(card => {
+        const media = {
+          src: card.dataset.src,
+          poster: card.dataset.poster,
+          title: card.dataset.title,
+          contentTitle: item.title,
+          contentId: item.id,
+          kind: 'serie',
+          season: Number(number),
+          episode: Number(card.dataset.episode),
+          episodeTitle: card.dataset.episodeTitle,
+          server: 'Servidor principal'
+        };
+        card.querySelector('.episode-play').onclick = () => openWmpPlayer(media);
+        card.querySelector('.episode-report').onclick = event => {
+          event.stopPropagation();
+          openReport(media);
+        };
+      });
+      rail.scrollLeft = 0;
+    }
+
+    select.onchange = () => renderSeason(select.value);
+    $('#prevEpisodes').onclick = () => $('#episodeGrid').scrollBy({ left: -$('#episodeGrid').clientWidth * .86, behavior: 'smooth' });
+    $('#nextEpisodes').onclick = () => $('#episodeGrid').scrollBy({ left: $('#episodeGrid').clientWidth * .86, behavior: 'smooth' });
+    renderSeason(Object.keys(item.seasons)[0]);
+  }
+})();

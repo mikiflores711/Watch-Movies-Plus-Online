@@ -1,21 +1,76 @@
 (() => {
-  const overlay=document.querySelector('#playerOverlay'), player=document.querySelector('#sharedPlayer'), close=document.querySelector('#closePlayer'), title=document.querySelector('#playerTitle');
-  if(!overlay||!player)return;
-  const REPORT_URL='https://script.google.com/macros/s/AKfycbyO0N65CFsRxN2z5n0w-0kPq45K70jU9FblW0Iis5ZDse72OubEUQY54sFnzCiIJkl2/exec';
-  let hideTimer=null,currentMedia=null;
-  const reportButton=document.createElement('button');reportButton.id='reportContent';reportButton.className='player-report';reportButton.setAttribute('aria-label','Reportar contenido caído');reportButton.title='Reportar contenido';reportButton.innerHTML='<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 17h.01"></path></svg>';overlay.appendChild(reportButton);
-  const dialog=document.createElement('div');dialog.className='report-dialog';dialog.setAttribute('aria-hidden','true');dialog.innerHTML='<section class="report-card" role="dialog" aria-modal="true"><button class="report-close" aria-label="Cerrar">×</button><h2>Reportar contenido</h2><p>Selecciona el problema encontrado.</p><div class="report-options"><button>El enlace no funciona</button><button>No tiene audio</button><button>El contenido es equivocado</button><button>El video se detiene</button></div><textarea maxlength="500" placeholder="Comentario opcional"></textarea><div class="report-status" aria-live="polite"></div></section>';overlay.appendChild(dialog);
-  const chrome=[close,title,reportButton];
-  const setHidden=v=>chrome.forEach(x=>x?.classList.toggle('controls-hidden',v));
-  const showChrome=()=>{setHidden(false);clearTimeout(hideTimer);hideTimer=setTimeout(()=>{if(!player.paused&&!dialog.classList.contains('open'))setHidden(true)},2600)};
-  const closeReport=()=>{dialog.classList.remove('open');dialog.setAttribute('aria-hidden','true');overlay.classList.remove('report-open');showChrome()};dialog.querySelector('.report-close').onclick=closeReport;dialog.onclick=e=>{if(e.target===dialog)closeReport()};
-  function jsonp(payload){return new Promise((resolve,reject)=>{const cb='__wmpReport_'+Date.now()+'_'+Math.random().toString(36).slice(2);const script=document.createElement('script');const timer=setTimeout(()=>done(new Error('Tiempo agotado')),18000);function done(err,data){clearTimeout(timer);try{delete window[cb]}catch(_){window[cb]=undefined}script.remove();err?reject(err):resolve(data)}window[cb]=data=>done(null,data);script.onerror=()=>done(new Error('Error de red'));const params=new URLSearchParams({action:'report',callback:cb,data:JSON.stringify(payload),cache:String(Date.now())});script.src=REPORT_URL+(REPORT_URL.includes('?')?'&':'?')+params.toString();script.async=true;document.head.appendChild(script)})}
-  reportButton.onclick=()=>{try{player.pause()}catch(_){};overlay.classList.add('report-open');dialog.classList.add('open');dialog.setAttribute('aria-hidden','false');setHidden(false)};
-  dialog.querySelectorAll('.report-options button').forEach(btn=>btn.onclick=async()=>{const status=dialog.querySelector('.report-status');status.textContent='Enviando reporte…';btn.disabled=true;try{const m=currentMedia||{};const payload={app:'Watch Movies Plus',version:'2.5',problem:btn.textContent,contentId:m.contentId||'',title:m.contentTitle||m.title||'',contentType:m.kind||'película',year:m.year||'',season:m.season||'',episode:m.episode||'',serverName:m.server||'Servidor principal',mediaUrl:m.src||'',pageUrl:location.href,userAgent:navigator.userAgent,reportedAt:new Date().toISOString(),comment:dialog.querySelector('textarea').value.trim().slice(0,500),reportKey:[m.contentId||'',m.kind||'',m.season||'',m.episode||'',m.server||'Servidor principal',btn.textContent].join('|')};const result=await jsonp(payload);status.textContent=result?.ok===false?'No se pudo guardar el reporte.':'Reporte enviado correctamente.';if(result?.ok!==false)setTimeout(closeReport,1100)}catch(e){status.textContent='No se pudo enviar el reporte.'}finally{btn.disabled=false}});
-  const isMobile=()=>matchMedia('(max-width: 900px)').matches||/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
-  async function lockLandscape(){if(!isMobile())return;try{if(screen.orientation&&screen.orientation.lock)await screen.orientation.lock('landscape')}catch(_){};overlay.classList.toggle('portrait-fallback',matchMedia('(orientation: portrait)').matches)}
-  async function unlockOrientation(){overlay.classList.remove('portrait-fallback');try{if(screen.orientation&&screen.orientation.unlock)screen.orientation.unlock()}catch(_){}}
-  const closePlayer=async()=>{clearTimeout(hideTimer);try{player.pause()}catch(_){}overlay.classList.remove('open','report-open');dialog.classList.remove('open');dialog.setAttribute('aria-hidden','true');overlay.setAttribute('aria-hidden','true');document.body.classList.remove('player-open');setHidden(false);try{if(document.fullscreenElement)await document.exitFullscreen()}catch(_){}};
-  window.openWmpPlayer=async options=>{if(!options?.src)return;currentMedia=options;title.textContent=options.title||'';player.setAttribute('title',options.title||'');player.setAttribute('src',options.src);options.poster?player.setAttribute('poster',options.poster):player.removeAttribute('poster');overlay.classList.add('open');overlay.setAttribute('aria-hidden','false');document.body.classList.add('player-open');showChrome();try{if(overlay.requestFullscreen&&!document.fullscreenElement)await overlay.requestFullscreen()}catch(_){}try{await player.play()}catch(_){}};
-  close?.addEventListener('click',closePlayer);['pointermove','pointerdown','touchstart','mousemove'].forEach(evt=>overlay.addEventListener(evt,showChrome,{passive:true}));player.addEventListener('play',showChrome);player.addEventListener('pause',()=>{setHidden(false);clearTimeout(hideTimer)});document.addEventListener('keydown',e=>{if(e.key==='Escape'&&dialog.classList.contains('open'))closeReport();else if(e.key==='Escape'&&overlay.classList.contains('open'))closePlayer();else if(overlay.classList.contains('open'))showChrome()});document.addEventListener('fullscreenchange',()=>{if(!document.fullscreenElement&&overlay.classList.contains('open'))closePlayer()});window.addEventListener('orientationchange',()=>{if(overlay.classList.contains('open'))setTimeout(lockLandscape,180)});
+  const overlay = document.querySelector('#playerOverlay');
+  const player = document.querySelector('#sharedPlayer');
+  const close = document.querySelector('#closePlayer');
+  const title = document.querySelector('#playerTitle');
+  if (!overlay || !player) return;
+
+  let hideTimer = null;
+  const chrome = [close, title];
+  const setHidden = value => chrome.forEach(node => node?.classList.toggle('controls-hidden', value));
+  const showChrome = () => {
+    setHidden(false);
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(() => {
+      if (!player.paused) setHidden(true);
+    }, 2600);
+  };
+
+  const isMobile = () => matchMedia('(max-width: 900px)').matches || /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+  async function lockLandscape() {
+    if (!isMobile()) return;
+    try {
+      if (screen.orientation?.lock) await screen.orientation.lock('landscape');
+    } catch (_) {}
+  }
+  function unlockOrientation() {
+    try { screen.orientation?.unlock?.(); } catch (_) {}
+  }
+
+  async function closePlayer() {
+    clearTimeout(hideTimer);
+    try { player.pause(); } catch (_) {}
+    overlay.classList.remove('open');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('player-open');
+    setHidden(false);
+    unlockOrientation();
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+    } catch (_) {}
+  }
+
+  window.openWmpPlayer = async options => {
+    if (!options?.src) return;
+    title.textContent = options.title || '';
+    player.setAttribute('title', options.title || '');
+    player.setAttribute('src', options.src);
+    options.poster ? player.setAttribute('poster', options.poster) : player.removeAttribute('poster');
+    overlay.classList.add('open');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('player-open');
+    showChrome();
+
+    try {
+      if (isMobile() && overlay.requestFullscreen && !document.fullscreenElement) {
+        await overlay.requestFullscreen();
+      }
+    } catch (_) {}
+    await lockLandscape();
+
+    try { await player.play(); } catch (_) {}
+  };
+
+  close.onclick = closePlayer;
+  overlay.addEventListener('mousemove', showChrome, { passive: true });
+  overlay.addEventListener('touchstart', showChrome, { passive: true });
+  overlay.addEventListener('click', showChrome);
+  player.addEventListener('play', showChrome);
+  player.addEventListener('pause', () => setHidden(false));
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && overlay.classList.contains('open') && isMobile()) closePlayer();
+  });
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && overlay.classList.contains('open')) closePlayer();
+  });
 })();
