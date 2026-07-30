@@ -143,10 +143,37 @@
     };
   });
 
+
+  async function resolveManagedMedia(media) {
+    const api = String(window.WMP_CONFIG?.reportApiUrl || '').replace(/\/$/, '');
+    if (!api || !media?.contentId) return media;
+    const query = new URLSearchParams({
+      contentId: media.contentId,
+      season: media.season || '',
+      episode: media.episode || '',
+      server: media.server || 'Servidor principal'
+    });
+    try {
+      const response = await fetch(`${api}/api/resolve?${query.toString()}`, { method: 'GET' });
+      const result = await response.json();
+      if (response.ok && result.ok && result.found && /^https?:\/\//i.test(result.url || '')) {
+        return { ...media, originalSrc: media.src, src: result.url, managed: true };
+      }
+    } catch (error) {
+      console.warn('No se pudo consultar el enlace administrado:', error);
+    }
+    return media;
+  }
+
+  async function playResolved(media) {
+    const resolved = await resolveManagedMedia(media);
+    openWmpPlayer(resolved);
+  }
+
   if (item.type === 'movie') {
     $('#movieActions').classList.remove('hidden');
     const movieMedia = { src: item.video, poster, title: item.title, contentTitle: item.title, contentId: item.id, kind: 'película', server: 'Servidor principal' };
-    $('#watchMovie').onclick = () => openWmpPlayer(movieMedia);
+    $('#watchMovie').onclick = () => playResolved(movieMedia);
     $('#reportMovie').onclick = () => openReport(movieMedia);
   } else {
     $('#episodesSection').classList.remove('hidden');
@@ -179,7 +206,7 @@
           episodeTitle: card.dataset.episodeTitle,
           server: 'Servidor principal'
         };
-        card.querySelector('.episode-play').onclick = () => openWmpPlayer(media);
+        card.querySelector('.episode-play').onclick = () => playResolved(media);
         card.querySelector('.episode-report').onclick = event => {
           event.stopPropagation();
           openReport(media);
