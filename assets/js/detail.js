@@ -1,6 +1,13 @@
 (async () => {
   const id = new URLSearchParams(location.search).get('id');
-  const item = (window.WMP_CONTENT || []).find(entry => entry.id === id);
+  const apiBase = String(window.WMP_CONFIG?.reportApiUrl || '').replace(/\/$/, '');
+  let runtimeContent = [];
+  try {
+    const response = await fetch(apiBase + '/api/content', { cache: 'no-store' });
+    const result = await response.json();
+    if (response.ok && result.ok && Array.isArray(result.items)) runtimeContent = result.items;
+  } catch (error) { console.warn('No se pudo cargar el catálogo de Cloudflare.', error); }
+  const item = runtimeContent.find(entry => entry.id === id) || (window.WMP_CONTENT || []).find(entry => entry.id === id);
   if (!item) {
     document.body.innerHTML = '<main class="shell"><h1>Contenido no encontrado</h1><a href="index.html">Volver</a></main>';
     return;
@@ -18,6 +25,7 @@
   let details;
   let people = [];
   let poster = item.backdrop;
+  const episodeVideo = episode => typeof episode === 'string' ? episode : (episode?.video || episode?.url || '');
 
   bg.style.backgroundImage = `url('${item.backdrop}')`;
   fallback.textContent = item.title;
@@ -186,11 +194,17 @@
       let episodes = [];
       try { episodes = (await TMDB.season(item.tmdbId, number)).episodes || []; } catch (_) {}
       const links = item.seasons[number] || [];
-      rail.innerHTML = links.map((src, index) => {
-        const episode = episodes[index] || { episode_number: index + 1, name: `Episodio ${index + 1}`, overview: '', runtime: '' };
-        const still = TMDB.image(episode.still_path, 'w780') || poster;
-        const safeTitle = String(episode.name || `Episodio ${index + 1}`).replace(/"/g, '&quot;');
-        return `<article class="episode-card" data-src="${src}" data-title="${item.title} T${number} E${index + 1}: ${safeTitle}" data-episode-title="${safeTitle}" data-poster="${still}" data-episode="${index + 1}"><div class="episode-still"><img src="${still}" alt="${safeTitle}"><button type="button" class="episode-play" aria-label="Reproducir episodio ${index + 1}"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></button><button type="button" class="episode-report" aria-label="Reportar episodio ${index + 1}" title="Reportar contenido caído"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 17h.01"></path></svg></button><span class="duration">${episode.runtime ? `${episode.runtime} min` : ''}</span></div><div class="episode-copy"><h3>${index + 1}. ${episode.name}</h3><p>${episode.overview || 'Sin descripción disponible.'}</p></div></article>`;
+      rail.innerHTML = links.map((entry, index) => {
+        const stored = typeof entry === 'string' ? {} : (entry || {});
+        const episode = episodes[index] || { episode_number: stored.episode || index + 1, name: stored.title || `Episodio ${index + 1}`, overview: stored.overview || '', runtime: stored.runtime || '' };
+        const numberEpisode = Number(stored.episode || episode.episode_number || index + 1);
+        const displayTitle = stored.title || episode.name || `Episodio ${numberEpisode}`;
+        const displayOverview = stored.overview || episode.overview || 'Sin descripción disponible.';
+        const displayRuntime = stored.runtime || episode.runtime || '';
+        const still = stored.still || TMDB.image(episode.still_path, 'w780') || poster;
+        const src = episodeVideo(entry);
+        const safeTitle = String(displayTitle).replace(/"/g, '&quot;');
+        return `<article class="episode-card" data-src="${src}" data-title="${item.title} T${number} E${numberEpisode}: ${safeTitle}" data-episode-title="${safeTitle}" data-poster="${still}" data-episode="${numberEpisode}"><div class="episode-still"><img src="${still}" alt="${safeTitle}"><button type="button" class="episode-play" aria-label="Reproducir episodio ${numberEpisode}"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"></path></svg></button><button type="button" class="episode-report" aria-label="Reportar episodio ${numberEpisode}" title="Reportar contenido caído"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v6M12 17h.01"></path></svg></button><span class="duration">${displayRuntime ? `${displayRuntime} min` : ''}</span></div><div class="episode-copy"><h3>${numberEpisode}. ${displayTitle}</h3><p>${displayOverview}</p></div></article>`;
       }).join('');
 
       rail.querySelectorAll('.episode-card').forEach(card => {
