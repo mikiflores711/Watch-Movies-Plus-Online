@@ -1,5 +1,5 @@
 (async()=>{
-const API=String(window.WMP_CONFIG?.reportApiUrl||'').replace(/\/$/,'');
+const API=String(window.WMP_CONFIG?.reportApiUrl||'https://watch-movies-plus-api.mikimc-business.workers.dev').replace(/\/$/,'');
 async function getContent(){try{const r=await fetch(API+'/api/content',{cache:'no-store'});const j=await r.json();if(r.ok&&j.ok&&Array.isArray(j.items)&&j.items.length)return j.items}catch(e){console.warn('Catálogo Cloudflare no disponible; se usa respaldo local.',e)}return window.WMP_CONTENT||[]}
 const all=await getContent();window.WMP_RUNTIME_CONTENT=all;
 const favKey='wmp_favorites_v3';const favs=()=>{try{return new Set(JSON.parse(localStorage.getItem(favKey)||'[]'))}catch{return new Set()}};const save=s=>localStorage.setItem(favKey,JSON.stringify([...s]));const href=x=>`detalle.html?id=${encodeURIComponent(x.id)}`;
