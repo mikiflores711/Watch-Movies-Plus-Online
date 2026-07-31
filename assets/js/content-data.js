@@ -1,6 +1,6 @@
 window.WMP_CONTENT = [
   {
-    id: 'rio-2011', type: 'movie', tmdbId: 46195, title: 'Río', year: 2011,
+    id: 'rio-2011', type: 'movie', tmdbId: 46195, title: 'Río', year: 2011, releaseDate: '2011-04-08',
     genre: 'Animación · Aventura · Comedia · Familia',
     description: 'Capturado por contrabandistas cuando era apenas una cría, un guacamayo llamado Blu nunca aprendió a volar y vive una vida feliz domesticado en Minnesota con su amiga humana, Linda.',
     poster: 'https://image.tmdb.org/t/p/w500/scjaS4XzbGicYLYAVbhmffwZtqq.jpg',
@@ -8,7 +8,7 @@ window.WMP_CONTENT = [
     video: 'https://archive.org/download/tg_1621b2eef1b545e18a8f7d9fcd0a8958/0UXiak6lWIhW.mp4'
   },
   {
-    id: 'loki-2021', type: 'tv', tmdbId: 84958, title: 'Loki', year: 2021,
+    id: 'loki-2021', type: 'tv', tmdbId: 84958, title: 'Loki', year: 2021, releaseDate: '2021-06-09',
     genre: 'Drama · Ciencia ficción · Fantasía',
     description: 'El Dios del Engaño sale de la sombra de su hermano y emprende una aventura que ocurre después de los eventos de Avengers: Endgame.',
     poster: 'https://image.tmdb.org/t/p/w500/kEl2t3OhXc3Zb9FBh1AuYzRTgZp.jpg',
